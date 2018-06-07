@@ -1,17 +1,17 @@
 -- This file was automatically generated for the LuaDist project.
 
 package = "aesfileencrypt"
-version = "0.1.1-1"
+version = "0.1.2-1"
 
 -- LuaDist source
 source = {
-  tag = "0.1.1-1",
+  tag = "0.1.2-1",
   url = "git://github.com/LuaDist-testing/aesfileencrypt.git"
 }
 -- Original source
 -- source = {
---   url = "https://github.com/moteus/lua-AesFileEncrypt/archive/v0.1.1.zip",
---   dir = "lua-AesFileEncrypt-0.1.1",
+--   url = "https://github.com/moteus/lua-AesFileEncrypt/archive/v0.1.2.zip",
+--   dir = "lua-AesFileEncrypt-0.1.2",
 -- }
 
 description = {
@@ -41,7 +41,7 @@ build = {
     AesFileEncrypt = {
       sources = {
         'src/fileenc/aescrypt.c','src/fileenc/aeskey.c','src/fileenc/aestab.c',
-        'src/fileenc/fileenc.c','src/fileenc/hmac.c','src/fileenc/prng.c',
+        'src/fileenc/fileenc.c','src/fileenc/hmac.c','src/fileenc/aes_modes.c',
         'src/fileenc/pwd2key.c','src/fileenc/sha1.c',
         'src/AesFileEncrypt.c','src/l52util.c',
       },
