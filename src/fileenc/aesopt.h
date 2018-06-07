@@ -186,7 +186,7 @@ extern "C"
   #include "aes.h"
 #endif
 
-#if defined(__GNUC__) || defined(__GNU_LIBRARY__)
+#if (defined(__GNUC__) || defined(__GNU_LIBRARY__)) && !defined(WIN32)
 #  include <endian.h>
 #  include <byteswap.h>
 #elif defined(__CRYPTLIB__)
@@ -223,47 +223,16 @@ extern "C"
     points marked **** EDIT HERE IF NECESSARY **** below.
 */
 #if !defined(PLATFORM_BYTE_ORDER)
-#if defined(LITTLE_ENDIAN) || defined(BIG_ENDIAN)
-#  if defined(LITTLE_ENDIAN) && defined(BIG_ENDIAN)
-#    if defined(BYTE_ORDER)
-#      if   (BYTE_ORDER == LITTLE_ENDIAN)
-#        define PLATFORM_BYTE_ORDER AES_LITTLE_ENDIAN
-#      elif (BYTE_ORDER == BIG_ENDIAN)
-#        define PLATFORM_BYTE_ORDER AES_BIG_ENDIAN
-#      endif
-#    endif
-#  elif defined(LITTLE_ENDIAN) && !defined(BIG_ENDIAN)
-#    define PLATFORM_BYTE_ORDER AES_LITTLE_ENDIAN
-#  elif !defined(LITTLE_ENDIAN) && defined(BIG_ENDIAN)
+#  include "platform_byte_order.h"
+#  if (PLATFORM_BYTE_ORDER == PLATFORM_BYTE_ORDER_BIG_ENDIAN)
+#    undef  PLATFORM_BYTE_ORDER 
 #    define PLATFORM_BYTE_ORDER AES_BIG_ENDIAN
-#  endif
-#elif defined(_LITTLE_ENDIAN) || defined(_BIG_ENDIAN)
-#  if defined(_LITTLE_ENDIAN) && defined(_BIG_ENDIAN)
-#    if defined(_BYTE_ORDER)
-#      if   (_BYTE_ORDER == _LITTLE_ENDIAN)
-#        define PLATFORM_BYTE_ORDER AES_LITTLE_ENDIAN
-#      elif (_BYTE_ORDER == _BIG_ENDIAN)
-#        define PLATFORM_BYTE_ORDER AES_BIG_ENDIAN
-#      endif
-#    endif
-#  elif defined(_LITTLE_ENDIAN) && !defined(_BIG_ENDIAN)
+#  elif (PLATFORM_BYTE_ORDER == PLATFORM_BYTE_ORDER_LITTLE_ENDIAN)
+#    undef  PLATFORM_BYTE_ORDER 
 #    define PLATFORM_BYTE_ORDER AES_LITTLE_ENDIAN
-#  elif !defined(_LITTLE_ENDIAN) && defined(_BIG_ENDIAN)
-#    define PLATFORM_BYTE_ORDER AES_BIG_ENDIAN
+#  else
+#    error !!! unknown PLATFORM_BYTE_ORDER !!!
 #  endif
-#elif 0     /* **** EDIT HERE IF NECESSARY **** */
-#define PLATFORM_BYTE_ORDER AES_LITTLE_ENDIAN
-#elif 0     /* **** EDIT HERE IF NECESSARY **** */
-#define PLATFORM_BYTE_ORDER AES_BIG_ENDIAN
-#elif (('1234' >> 24) == '1')
-#  define PLATFORM_BYTE_ORDER AES_LITTLE_ENDIAN
-#elif (('4321' >> 24) == '1')
-#  define PLATFORM_BYTE_ORDER AES_BIG_ENDIAN
-#endif
-#endif
-
-#if !defined(PLATFORM_BYTE_ORDER)
-#  error Please set undetermined byte order (lines 241 or 243 of aesopt.h).
 #endif
 
 /*  3. FUNCTIONS REQUIRED

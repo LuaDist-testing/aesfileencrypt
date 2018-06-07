@@ -70,8 +70,8 @@ static int l_fcrypt_destroyed(lua_State *L){
 static int l_fcrypt_open(lua_State *L){
   l_fcrypt_ctx *ctx = l_getctx_at(L, 1);
   int mode = luaL_checkint(L, 2);
-  size_t pwd_len; const char *pwd = luaL_checklstring(L, 3, &pwd_len);
-  size_t slt_len; const char *slt = luaL_checklstring(L, 4, &slt_len);
+  size_t pwd_len; const unsigned char *pwd = (unsigned char *)luaL_checklstring(L, 3, &pwd_len);
+  size_t slt_len; const unsigned char *slt = (unsigned char *)luaL_checklstring(L, 4, &slt_len);
   unsigned char pver[PWD_VER_LENGTH]; int ret;
   lua_settop(L, 4);
 
@@ -86,7 +86,7 @@ static int l_fcrypt_open(lua_State *L){
     return 2;
   }
 
-  lua_pushlstring(L, pver, PWD_VER_LENGTH);
+  lua_pushlstring(L, (const char*)pver, PWD_VER_LENGTH);
   ctx->flags |= FLAG_OPEN;
   return 2;
 }
@@ -171,14 +171,63 @@ static int l_fcrypt_close(lua_State *L){
 
   fcrypt_end(mac, ctx->ctx);
   ctx->flags &= ~FLAG_OPEN;
-  lua_pushlstring(L, mac, MAC_LENGTH(ctx->ctx->mode));
+  lua_pushlstring(L, (const char*)mac, MAC_LENGTH(ctx->ctx->mode));
   return 1;
 }
+
+#if LUA_VERSION_NUM >= 502 // lua 5.2
+
+static int l_fcrypt_encryptk_impl(lua_State *L, lua_CFunction k, pfcrypt_encrypt encrypt);
+
+static int l_fcrypt_encryptk(lua_State *L){
+  return l_fcrypt_encryptk_impl(L, l_fcrypt_encryptk, fcrypt_encrypt);
+}
+
+static int l_fcrypt_decryptk(lua_State *L){
+  return l_fcrypt_encryptk_impl(L, l_fcrypt_decryptk, fcrypt_decrypt);
+}
+
+static int l_fcrypt_encryptk_impl(lua_State *L, lua_CFunction k, pfcrypt_encrypt encrypt){
+  l_fcrypt_ctx *ctx = l_getctx_at(L, 1);
+  size_t len; const char *data = luaL_checklstring(L, 2, &len);
+  const char *b, *e = data + len;
+
+  if(LUA_OK == lua_getctx(L, NULL)){
+    lua_settop(L, 2);
+    lua_pushlightuserdata(L, data);
+  }
+  else{
+    assert(lua_gettop(L) == 3);
+  }
+
+  b = lua_touserdata(L, -1);
+
+  for(; b < e; b += ctx->buf_len){
+    size_t left = e - b;
+    if(left > ctx->buf_len) left = ctx->buf_len;
+
+    memcpy(ctx->buf, b, left);
+    encrypt((unsigned char*)&ctx->buf[0], left, ctx->ctx);
+    
+    lua_remove(L, -1);
+    lua_pushlightuserdata(L, b + ctx->buf_len);
+    
+    {
+      int n = l_fcrypt_push_cb(L, ctx);
+      lua_pushlstring(L, ctx->buf, left);
+      lua_callk(L, n, 0, 1, k);
+    }
+  }
+
+  return 0;
+}
+
+#endif
 
 static int l_fcrypt_encrypt_impl(lua_State *L, pfcrypt_encrypt encrypt){
   l_fcrypt_ctx *ctx = l_getctx_at(L, 1);
   size_t len; const char *data = luaL_checklstring(L, 2, &len);
-  luaL_Buffer buffer; int n;
+  luaL_Buffer buffer; int n = 0;
   const char *b, *e; int use_buffer = (ctx->cb_ref == LUA_NOREF)?1:0;
   luaL_argcheck(L, ctx->flags & FLAG_OPEN, 1, "context is close");
   if(use_buffer) luaL_buffinit(L, &buffer);
@@ -188,7 +237,7 @@ static int l_fcrypt_encrypt_impl(lua_State *L, pfcrypt_encrypt encrypt){
     if(left > ctx->buf_len) left = ctx->buf_len;
 
     memcpy(ctx->buf, b, left);
-    encrypt(ctx->buf, left, ctx->ctx);
+    encrypt((unsigned char*)&ctx->buf[0], left, ctx->ctx);
     if(use_buffer) luaL_addlstring(&buffer, ctx->buf, left);
     else{
       int i, top = lua_gettop(L);
@@ -206,30 +255,42 @@ static int l_fcrypt_encrypt_impl(lua_State *L, pfcrypt_encrypt encrypt){
 }
 
 static int l_fcrypt_encrypt(lua_State *L){
+#if LUA_VERSION_NUM >= 502 // lua 5.2
+  l_fcrypt_ctx *ctx = l_getctx_at(L, 1);
+  if(ctx->cb_ref != LUA_NOREF)
+    return l_fcrypt_encryptk(L);
+#endif
+
   return l_fcrypt_encrypt_impl(L, fcrypt_encrypt);
 }
 
 static int l_fcrypt_decrypt(lua_State *L){
+#if LUA_VERSION_NUM >= 502 // lua 5.2
+  l_fcrypt_ctx *ctx = l_getctx_at(L, 1);
+  if(ctx->cb_ref != LUA_NOREF)
+    return l_fcrypt_decryptk(L);
+#endif
+
   return l_fcrypt_encrypt_impl(L, fcrypt_decrypt);
 }
 
 static const struct luaL_Reg l_fcrypt_lib[] = {
-  "new", l_fcrypt_new,
-  NULL, NULL
+  {"new", l_fcrypt_new},
+  {NULL, NULL}
 };
 
 static const struct luaL_Reg l_fcrypt_meth[] = {
-  "__gc",       l_fcrypt_destroy,
-  "open",       l_fcrypt_open,
-  "destroy",    l_fcrypt_destroy,
-  "opened",     l_fcrypt_opened,
-  "destroyed",  l_fcrypt_destroyed,
-  "set_writer", l_fcrypt_set_writer,
-  "get_writer", l_fcrypt_get_writer,
-  "encrypt",    l_fcrypt_encrypt,
-  "decrypt",    l_fcrypt_decrypt,
-  "close",      l_fcrypt_close,
-  NULL, NULL
+  {"__gc",       l_fcrypt_destroy},
+  {"open",       l_fcrypt_open},
+  {"destroy",    l_fcrypt_destroy},
+  {"opened",     l_fcrypt_opened},
+  {"destroyed",  l_fcrypt_destroyed},
+  {"set_writer", l_fcrypt_set_writer},
+  {"get_writer", l_fcrypt_get_writer},
+  {"encrypt",    l_fcrypt_encrypt},
+  {"decrypt",    l_fcrypt_decrypt},
+  {"close",      l_fcrypt_close},
+  {NULL, NULL}
 };
 
 int luaopen_AesFileEncrypt(lua_State*L){

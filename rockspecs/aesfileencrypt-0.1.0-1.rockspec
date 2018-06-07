@@ -1,9 +1,9 @@
 package = "AesFileEncrypt"
-version = "scm-0"
+version = "0.1.0-1"
 
 source = {
-  url = "https://github.com/moteus/lua-AesFileEncrypt/archive/master.zip",
-  dir = "lua-AesFileEncrypt-master",
+  url = "https://github.com/moteus/lua-AesFileEncrypt/archive/v0.1.0.zip",
+  dir = "lua-AesFileEncrypt-0.1.0",
 }
 
 description = {
@@ -25,7 +25,7 @@ dependencies = {
 }
 
 build = {
-  copy_directories = {"test", "examples"},
+  copy_directories = {"test"},
 
   type = "builtin",
 
@@ -37,7 +37,6 @@ build = {
         'src/fileenc/pwd2key.c','src/fileenc/sha1.c',
         'src/AesFileEncrypt.c','src/l52util.c',
       },
-      defines = { 'USE_SHA1' },
     },
   },
 }
